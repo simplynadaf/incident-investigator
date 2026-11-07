@@ -1,0 +1,6 @@
+work/
+.venv/
+__pycache__/
+*.pyc
+recorder/out/
+recorder/shots/
