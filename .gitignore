@@ -1,6 +1,13 @@
+# recording + dev assets, not part of the published project
+recorder/
+out/
+vo/
 work/
-.venv/
+*.webm
+demo.spec.json
+mix.sh
+reset.sh
+vo_lines.json
+NOTES.md
 __pycache__/
-*.pyc
-recorder/out/
-recorder/shots/
+.venv/
