@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/github-cover.png" alt="The Incident Investigator: break three AWS services at once (Amazon SQS backlog, AWS Step Functions bad deploy, AWS Lambda timeout), a read-only AI agent finds every root cause, a human approves each fix. Powered by Amazon Nova Pro as a Kiro Crew job." width="100%" />
+
 # 🔍 Incident Investigator: a read-only AI SRE
 
 ### Three different production services break at once. A read-only AI agent investigates each one, traces it from the CloudWatch alarm to the metric, to the log or the config, to the change that caused it, and names a single cited root cause plus the fix to run. It never remediates on its own. A human approves each fix, and the alarms recover.
