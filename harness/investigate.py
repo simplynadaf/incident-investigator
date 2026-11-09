@@ -33,13 +33,120 @@ CHANGE_EVENTS = ("UpdateFunctionConfiguration", "UpdateFunctionCode", "PutFuncti
 
 def gather(alarm_name):
     cw = boto3.client("cloudwatch", region_name=REGION)
+    a = cw.describe_alarms(AlarmNames=[alarm_name])["MetricAlarms"][0]
+    ns = a.get("Namespace", "")
+    if ns == "AWS/DynamoDB":
+        return gather_dynamodb(alarm_name, a, cw)
+    if ns == "AWS/SQS":
+        return gather_sqs(alarm_name, a, cw)
+    if ns == "AWS/States":
+        return gather_stepfunctions(alarm_name, a, cw)
+    return gather_lambda(alarm_name, a, cw)
+
+
+def _cloudtrail_change(resource, want):
+    """Read-only CloudTrail lookup for the change that matches this incident."""
+    out = {}
+    try:
+        ct = boto3.client("cloudtrail", region_name=REGION)
+        end = datetime.now(timezone.utc)
+        events = ct.lookup_events(LookupAttributes=[{"AttributeKey": "ResourceName", "AttributeValue": resource}],
+                                  StartTime=end - timedelta(hours=6), EndTime=end, MaxResults=25)["Events"]
+        chg = [e for e in events if any(k in e["EventName"] for k in want)]
+        if chg:
+            c = sorted(chg, key=lambda e: e["EventTime"])[-1]
+            out["change_event"] = c["EventName"]; out["change_time"] = rd(c["EventTime"])
+            out["change_by"] = c.get("Username") or json.loads(c["CloudTrailEvent"]).get("userIdentity", {}).get("arn", "unknown")
+    except Exception as e:
+        out["cloudtrail_note"] = f"not available ({type(e).__name__})"
+    return out
+
+
+def gather_dynamodb(alarm_name, a, cw):
+    ddb = boto3.client("dynamodb", region_name=REGION)
+    table = next(d["Value"] for d in a["Dimensions"] if d["Name"] == "TableName")
+    ev = {"alarm": alarm_name, "service": "Amazon DynamoDB", "resource": table, "function": table,
+          "alarm_metric": a["MetricName"], "state": a["StateValue"], "threshold": a["Threshold"],
+          "breach_time": rd(a["StateUpdatedTimestamp"])}
+    end = datetime.now(timezone.utc); start = end - timedelta(hours=1)
+    for m in ("WriteThrottleEvents", "ReadThrottleEvents", "ThrottledRequests"):
+        pts = cw.get_metric_statistics(Namespace="AWS/DynamoDB", MetricName=m,
+                                       Dimensions=[{"Name": "TableName", "Value": table}],
+                                       StartTime=start, EndTime=end, Period=60, Statistics=["Sum"])["Datapoints"]
+        spikes = [p for p in pts if p["Sum"] > 0]
+        if spikes:
+            ev[f"{m.lower()}_total"] = int(sum(p["Sum"] for p in spikes))
+    desc = ddb.describe_table(TableName=table)["Table"]
+    pt = desc.get("ProvisionedThroughput", {})
+    ev["read_capacity_units"] = pt.get("ReadCapacityUnits")
+    ev["write_capacity_units"] = pt.get("WriteCapacityUnits")
+    ev["billing_mode"] = desc.get("BillingModeSummary", {}).get("BillingMode", "PROVISIONED")
+    if ev.get("writethrottleevents_total"):
+        ev["signal"] = f"write requests were throttled because the table's provisioned write capacity ({ev.get('write_capacity_units')} WCU) is too low for the load"
+    elif ev.get("readthrottleevents_total"):
+        ev["signal"] = f"read requests were throttled because the table's provisioned read capacity ({ev.get('read_capacity_units')} RCU) is too low for the load"
+    else:
+        ev["signal"] = "the table's provisioned capacity appears too low for the request rate"
+    ev.update(_cloudtrail_change(table, ("UpdateTable",)))
+    return ev
+
+
+def gather_sqs(alarm_name, a, cw):
+    sqs = boto3.client("sqs", region_name=REGION)
+    qname = next(d["Value"] for d in a["Dimensions"] if d["Name"] == "QueueName")
+    ev = {"alarm": alarm_name, "service": "Amazon SQS", "resource": qname, "function": qname,
+          "alarm_metric": a["MetricName"], "state": a["StateValue"], "threshold": a["Threshold"],
+          "breach_time": rd(a["StateUpdatedTimestamp"])}
+    end = datetime.now(timezone.utc); start = end - timedelta(hours=1)
+    for m, stat in (("ApproximateAgeOfOldestMessage", "Maximum"), ("ApproximateNumberOfMessagesVisible", "Maximum"),
+                    ("NumberOfMessagesSent", "Sum"), ("NumberOfMessagesDeleted", "Sum")):
+        pts = cw.get_metric_statistics(Namespace="AWS/SQS", MetricName=m,
+                                       Dimensions=[{"Name": "QueueName", "Value": qname}],
+                                       StartTime=start, EndTime=end, Period=60, Statistics=[stat])["Datapoints"]
+        if pts:
+            ev[m.lower()] = int(max(p[stat] for p in pts))
+    sent = ev.get("numberofmessagessent", 0); deleted = ev.get("numberofmessagesdeleted", 0)
+    ev["signal"] = (f"messages are piling up: the oldest message is about {ev.get('approximateageofoldestmessage','?')} seconds old "
+                    f"and nothing is consuming them (messages sent but not deleted), so the consumer has stalled")
+    return ev
+
+
+def gather_stepfunctions(alarm_name, a, cw):
+    sfn = boto3.client("stepfunctions", region_name=REGION)
+    sm_arn = next(d["Value"] for d in a["Dimensions"] if d["Name"] == "StateMachineArn")
+    name = sm_arn.split(":")[-1]
+    ev = {"alarm": alarm_name, "service": "AWS Step Functions", "resource": name, "function": name,
+          "alarm_metric": a["MetricName"], "state": a["StateValue"], "threshold": a["Threshold"],
+          "breach_time": rd(a["StateUpdatedTimestamp"])}
+    end = datetime.now(timezone.utc); start = end - timedelta(hours=1)
+    pts = cw.get_metric_statistics(Namespace="AWS/States", MetricName="ExecutionsFailed",
+                                   Dimensions=[{"Name": "StateMachineArn", "Value": sm_arn}],
+                                   StartTime=start, EndTime=end, Period=60, Statistics=["Sum"])["Datapoints"]
+    failed = [p for p in pts if p["Sum"] > 0]
+    if failed:
+        ev["executionsfailed_total"] = int(sum(p["Sum"] for p in failed))
+    # the error/cause from the most recent failed execution (authoritative, read-only)
+    try:
+        execs = sfn.list_executions(stateMachineArn=sm_arn, statusFilter="FAILED", maxResults=1)["executions"]
+        if execs:
+            de = sfn.describe_execution(executionArn=execs[0]["executionArn"])
+            ev["execution_error"] = de.get("error", "")
+            if de.get("cause"):
+                ev["error_log"] = (de["error"] + ": " + de["cause"])[:170]
+    except Exception:
+        pass
+    ev["signal"] = ("executions are failing for every run, which points to the workflow definition itself, "
+                    "not the input, so a recent definition deploy is the likely cause")
+    ev.update(_cloudtrail_change(name, ("UpdateStateMachine", "CreateStateMachine")))
+    return ev
+
+
+def gather_lambda(alarm_name, a, cw):
     logs = boto3.client("logs", region_name=REGION)
     lam = boto3.client("lambda", region_name=REGION)
-    ev = {"alarm": alarm_name}
-
-    a = cw.describe_alarms(AlarmNames=[alarm_name])["MetricAlarms"][0]
+    ev = {"alarm": alarm_name, "service": "AWS Lambda"}
     fn = next(d["Value"] for d in a["Dimensions"] if d["Name"] == "FunctionName")
-    ev.update(function=fn, alarm_metric=a["MetricName"], state=a["StateValue"],
+    ev.update(function=fn, resource=fn, alarm_metric=a["MetricName"], state=a["StateValue"],
               threshold=a["Threshold"], breach_time=rd(a["StateUpdatedTimestamp"]))
 
     cfg = lam.get_function_configuration(FunctionName=fn)
@@ -161,18 +268,30 @@ def guard(text, ev):
 
 
 def post_issue(repo, alarm, ev, rca):
-    metric_line = " / ".join(f"{m} = {ev[m.lower()+'_total']}" for m in ("Errors", "Throttles") if ev.get(m.lower()+"_total")) or "n/a"
+    svc = ev.get("service", "AWS")
+    res = ev.get("resource") or ev.get("function")
+    # build a service-aware evidence timeline from whatever the gatherer collected
+    lines = []
+    mt = " / ".join(f"{k.replace('_total','').replace('_',' ')} = {v}" for k, v in ev.items() if k.endswith("_total"))
+    if mt: lines.append(f"- metric: {mt}")
+    if ev.get("error_log"): lines.append(f"- log: `{ev['error_log']}`")
+    if ev.get("approximateageofoldestmessage") is not None:
+        lines.append(f"- queue: oldest message ~{ev['approximateageofoldestmessage']}s old, {ev.get('approximatenumberofmessagesvisible','?')} visible")
+    if ev.get("write_capacity_units") is not None:
+        lines.append(f"- capacity: {ev.get('read_capacity_units')} RCU / {ev.get('write_capacity_units')} WCU ({ev.get('billing_mode')})")
+    if ev.get("timeout_seconds") is not None:
+        lines.append(f"- config: timeout {ev['timeout_seconds']}s, memory {ev['memory_mb']}MB"
+                     + (f", max memory used {ev['max_memory_used_mb']}MB" if ev.get('max_memory_used_mb') else "")
+                     + (f", reserved concurrency {ev['reserved_concurrency']}" if 'reserved_concurrency' in ev else "")
+                     + f", last modified {ev['last_modified']}")
+    if ev.get("execution_error"):
+        lines.append(f"- workflow: failed executions, error `{ev['execution_error']}`")
+    if ev.get("change_event"):
+        lines.append(f"- change: {ev['change_event']} by {ev.get('change_by')} at {ev.get('change_time')}")
     body = (f"**Automated RCA by the Incident Investigator (read-only).**\n\n"
-            f"Alarm `{alarm}` on `{ev['function']}` breached at {ev['breach_time']}.\n\n"
-            f"### Evidence timeline\n"
-            f"- metric: {metric_line}\n"
-            f"- log: `{ev.get('error_log')}`\n"
-            f"- config: timeout {ev['timeout_seconds']}s, memory {ev['memory_mb']}MB"
-            + (f", max memory used {ev['max_memory_used_mb']}MB" if ev.get('max_memory_used_mb') else "")
-            + (f", reserved concurrency {ev['reserved_concurrency']}" if 'reserved_concurrency' in ev else "")
-            + f", last modified {ev['last_modified']}\n"
-            + (f"- change: {ev.get('change_event')} by {ev.get('change_by')} at {ev.get('change_time')}\n" if ev.get("change_event") else "")
-            + f"\n### Analysis\n{rca}\n\n<sub>Read-only. Python gathered the evidence; Amazon Nova Pro phrased the cause. No AWS resource was changed.</sub>")
+            f"Alarm `{alarm}` on {svc} `{res}` breached at {ev['breach_time']}.\n\n"
+            f"### Evidence timeline\n" + "\n".join(lines)
+            + f"\n\n### Analysis\n{rca}\n\n<sub>Read-only. Python gathered the evidence; Amazon Nova Pro phrased the cause. No AWS resource was changed.</sub>")
     title = f"RCA: {alarm} (root cause found)"
     out = subprocess.run(["gh", "issue", "create", "--repo", repo, "--title", title, "--body", body, "--label", "incident"],
                          capture_output=True, text=True)
@@ -189,16 +308,25 @@ def main():
     t0 = time.time()
     print(f"[{time.strftime('%H:%M:%S')}] ALARM    {a.alarm}: gathering evidence (read-only)...", flush=True)
     ev = gather(a.alarm)
-    metric_line = " / ".join(f"{m} = {ev[m.lower()+'_total']}" for m in ("Errors", "Throttles") if ev.get(m.lower()+"_total"))
-    print(f"[{time.strftime('%H:%M:%S')}] METRIC   {metric_line or 'no error/throttle datapoints yet'}", flush=True)
-    print(f"[{time.strftime('%H:%M:%S')}] LOG      {ev.get('error_log')}", flush=True)
-    print(f"[{time.strftime('%H:%M:%S')}] CONFIG   timeout={ev['timeout_seconds']}s memory={ev['memory_mb']}MB"
-          + (f" maxUsed={ev['max_memory_used_mb']}MB" if ev.get('max_memory_used_mb') else "")
-          + (f" reservedConc={ev['reserved_concurrency']}" if 'reserved_concurrency' in ev else "")
-          + f", last modified {ev['last_modified']}", flush=True)
+    def ts(): return time.strftime('%H:%M:%S')
+    # service-aware evidence lines (no KeyError across Lambda / DynamoDB / SQS)
+    mt = " / ".join(f"{k.replace('_total','').replace('_',' ')} = {v}" for k, v in ev.items() if k.endswith("_total"))
+    print(f"[{ts()}] SERVICE  {ev.get('service','AWS')}: {ev.get('resource')}", flush=True)
+    print(f"[{ts()}] METRIC   {mt or ev.get('alarm_metric','(alarm metric)')}", flush=True)
+    if ev.get("error_log"):
+        print(f"[{ts()}] LOG      {ev['error_log']}", flush=True)
+    if ev.get("approximateageofoldestmessage") is not None:
+        print(f"[{ts()}] QUEUE    oldest message ~{ev['approximateageofoldestmessage']}s old, {ev.get('approximatenumberofmessagesvisible','?')} visible", flush=True)
+    if ev.get("write_capacity_units") is not None:
+        print(f"[{ts()}] CAPACITY {ev.get('read_capacity_units')} RCU / {ev.get('write_capacity_units')} WCU ({ev.get('billing_mode')})", flush=True)
+    if ev.get("timeout_seconds") is not None:
+        print(f"[{ts()}] CONFIG   timeout={ev['timeout_seconds']}s memory={ev['memory_mb']}MB"
+              + (f" maxUsed={ev['max_memory_used_mb']}MB" if ev.get('max_memory_used_mb') else "")
+              + (f" reservedConc={ev['reserved_concurrency']}" if 'reserved_concurrency' in ev else "")
+              + f", last modified {ev['last_modified']}", flush=True)
     if ev.get("change_event"):
-        print(f"[{time.strftime('%H:%M:%S')}] CHANGE   {ev['change_event']} by {ev.get('change_by')} at {ev.get('change_time')}", flush=True)
-    print(f"[{time.strftime('%H:%M:%S')}] NOVA     writing the root cause from the evidence...", flush=True)
+        print(f"[{ts()}] CHANGE   {ev['change_event']} by {ev.get('change_by')} at {ev.get('change_time')}", flush=True)
+    print(f"[{ts()}] NOVA     writing the root cause from the evidence...", flush=True)
     rca = nova_rca(ev)
     rca, stripped = guard(rca, ev)
     if stripped:

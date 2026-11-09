@@ -11,3 +11,4 @@ vo_lines.json
 NOTES.md
 __pycache__/
 .venv/
+synth_vo.sh
