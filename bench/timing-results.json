@@ -1,0 +1,8 @@
+{
+ "what": "Cost of the F-02 fix on the 3 honest incidents, Amazon Nova Pro, us-east-1, 10 runs per incident per pass",
+ "method": "bench/timing.py, run on commit c08b074 (before) and the branch tip (after), alternating order, 2 passes each = 60 runs per version",
+ "before": {"runs": 60, "nova_p50_s": [4.92, 4.70], "nova_p95_s": [5.69, 6.13], "prompt_chars_mean": 1127, "answers_replaced_by_fallback": 0},
+ "after":  {"runs": 60, "nova_p50_s": [4.75, 4.72], "nova_p95_s": [6.57, 5.65], "prompt_chars_mean": 1053, "answers_replaced_by_fallback": 0},
+ "discarded": "A first 30-run pass of the old code showed p50 1.2 s. It ran first, alone, with a warm path, and was not reproducible, so it is excluded. Alternating passes show no latency difference.",
+ "reading": "No measurable latency change, prompt 6.6 percent smaller, 0 of 60 honest answers fell back to the deterministic RCA."
+}

@@ -16,6 +16,13 @@
 
 </div>
 
+> ## Security hardening from a Well-Architected review (branch `hardening-wa-review`)
+> The Agent Toolkit `aws-well-architected-review` skill (Security pillar, 52 of 52 best practices read) found that text a monitored
+> workload writes to a log reached the model and a GitHub issue. This branch fixes that one finding (F-02) and measures it.
+> **12/40 steered RCAs -> 0/40. 30/40 clickable attacker links -> 0/40. 12 failing security tests -> 15 passing. No change in latency
+> or in the 30/30 correct RCAs on honest incidents.** Details: [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md),
+> [`docs/well-architected-review/`](docs/well-architected-review/), [`bench/`](bench/). Tags: `v1-before` (c08b074), `v2-after`.
+
 ---
 
 ## 🏗️ Architecture
