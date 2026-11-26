@@ -1,0 +1,14 @@
+{
+ "alarm": "demo-ii-fulfillment-failures",
+ "service": "AWS Step Functions",
+ "resource": "demo-ii-fulfillment",
+ "function": "demo-ii-fulfillment",
+ "alarm_metric": "ExecutionsFailed",
+ "state": "ALARM",
+ "threshold": 0.0,
+ "breach_time": "2026-11-26 05:23:31 UTC",
+ "executionsfailed_total": 71,
+ "execution_error": "PaymentServiceUnavailable",
+ "error_log": "PaymentServiceUnavailable: downstream payment call failed",
+ "signal": "executions are failing for every run, which points to the workflow definition itself, not the input, so a recent definition deploy is the likely cause"
+}

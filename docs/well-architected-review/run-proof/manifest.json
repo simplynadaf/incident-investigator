@@ -1,0 +1,15 @@
+{
+  "valid": true,
+  "retrieval_method": "mcp_toc_index",
+  "source": "https://docs.aws.amazon.com/wellarchitected/latest/framework/toc-contents.json",
+  "retrieved_at": "2026-11-26T04:49:00Z",
+  "pillar_total": 6,
+  "question_total": 50,
+  "bp_total": 216,
+  "index_total_length": 34791,
+  "appendix_match": "structure",
+  "questions_per_pillar": { "operational-excellence": 7, "security": 11, "reliability": 13, "performance-efficiency": 5, "cost-optimization": 10, "sustainability": 4 },
+  "bps_per_pillar": { "operational-excellence": 28, "security": 52, "reliability": 63, "performance-efficiency": 26, "cost-optimization": 33, "sustainability": 14 },
+  "errors": [],
+  "notes": "Live index differs from the reference description: there is no 'Appendix' node. The six pillars are direct children of the top-level 'Cloud Workloads' node, which holds the most BP nodes (216). A separate top-level 'Cloud Foundations' node holds 45 FND BPs (not one of the six pillars, not in scope). There is no Category level; questions are the direct parents of BP nodes, classified structurally. Index read in 2 slices (20000 + 14791 = 34791, truncated false). Counts enumerated line by line from the index text; inventory files exist for all six pillars, but this pillar-scoped run reads BP pages for Security only."
+}

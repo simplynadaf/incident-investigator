@@ -7,9 +7,14 @@ Pipeline (all AWS calls are read-only: Describe / Get / Filter / Lookup):
   3. find the error log line in the function's log group  (instant, authoritative)
   4. read the function config (Timeout + LastModified)     (what changed + when, authoritative)
   5. corroborate with CloudTrail UpdateFunctionConfiguration (who, when CloudTrail has caught up)
-  6. Amazon Nova Pro writes the one-sentence root cause + recommended fix, from ONLY that evidence
-  7. a guard strips any resource id / time / number the evidence does not contain
-  8. print the RCA and (optionally) post it as a GitHub issue on our own repo
+  6. Amazon Nova Pro writes the one-sentence root cause + recommended fix, from the TRUSTED evidence only.
+     Free text that a monitored workload controls (log lines, Step Functions causes) never enters the prompt;
+     only a constrained error type does (Well-Architected review F-02, SEC01-BP06 / SEC11-BP02).
+  7. a fail-closed guard checks every number (single digits too), time, identifier, ARN, URL, address and
+     command in the answer against the trusted evidence; any miss replaces the whole answer with a
+     deterministic RCA built from the trusted signal
+  8. print the RCA and (optionally) post it as a GitHub issue on our own repo; untrusted log text is shown
+     defanged (no clickable link, no markup, no control characters)
 
 Never remediates. Prints a JSON result to --out for the recorder's dialog.
   python3 investigate.py --alarm demo-ii-orders-errors [--repo simplynadaf/incident-investigator] [--post] [--out out/rca.json]
@@ -241,6 +246,51 @@ def gather_lambda(alarm_name, a, cw):
     return ev
 
 
+# ---- trust boundary (review F-02) -------------------------------------------------------------------
+# TRUSTED: values read from AWS control planes and metrics. UNTRUSTED: text a monitored workload writes
+# (any app that can log "ERROR ..." controls up to 170 characters of error_log).
+UNTRUSTED_KEYS = ("error_log", "execution_error")
+SAFE_ERROR_TYPES = {"KeyError", "ValueError", "TypeError", "RuntimeError", "MemoryError", "ImportError", "AttributeError",
+                    "IndexError", "NameError", "OSError", "TimeoutError", "ConnectionError", "PermissionError",
+                    "FileNotFoundError", "ZeroDivisionError", "AssertionError", "Exception", "ModuleNotFoundError"}
+_ERR_WORD = re.compile(r"\b[A-Za-z][A-Za-z0-9_]{2,60}\b")
+
+
+def trusted_view(ev):
+    """The evidence the model may see: no workload-written free text, plus one constrained error type."""
+    t = {k: v for k, v in ev.items() if k not in UNTRUSTED_KEYS}
+    for w in _ERR_WORD.findall(ev.get("error_log") or ""):
+        if w in SAFE_ERROR_TYPES:
+            t["error_type"] = w
+            break
+    return t
+
+
+def neutralize(text):
+    """Make workload-written text inert before a human sees it: one line, no control characters, no markup,
+    no clickable links, no code-span breakout. It is still readable as evidence."""
+    if not text:
+        return text
+    t = re.sub(r"[\x00-\x1f\x7f]+", " ", str(text))
+    t = t.replace("`", "'")
+    t = re.sub(r"(?i)\b(https?|ftp)://", lambda m: {"http": "hxxp", "https": "hxxps", "ftp": "fxp"}[m.group(1).lower()] + "[://]", t)
+    t = re.sub(r"(?<=\d)\.(?=\d)", "[.]", t)
+    t = t.replace("](", "] (").replace("@", "[at]")
+    return re.sub(r"\s+", " ", t).strip()[:170]
+
+
+def fallback_rca(ev):
+    """A deterministic RCA built only from trusted evidence. Used when the guard rejects the model's wording."""
+    t = trusted_view(ev)
+    sig = t.get("signal") or "the alarm's metric breached its threshold and the metrics alone do not narrow the cause"
+    chg = (f" The most recent change on this resource was {t['change_event']} at {t.get('change_time')}." if t.get("change_event") else "")
+    fix = (f"a human should review the {t['change_event']} change and the application error in the evidence timeline."
+           if t.get("change_event") else "a human should review the resource configuration and the application error in the evidence timeline.")
+    return (f"ROOT CAUSE: {sig[0].upper() + sig[1:]}.{chg}\n\n"
+            f"CONFIDENCE: medium, built from metrics, configuration and CloudTrail only (the model's wording was rejected by the guard).\n\n"
+            f"FIX (do not run, read-only): {fix}")
+
+
 def nova_rca(ev):
     br = boto3.client("bedrock-runtime", region_name=REGION)
     prompt = (
@@ -250,20 +300,36 @@ def nova_rca(ev):
         "ROOT CAUSE: one sentence naming the single most likely cause.\n"
         "CONFIDENCE: high, medium, or low, with a half-sentence why.\n"
         "FIX (do not run, read-only): the one action a human should take.\n\n"
-        f"EVIDENCE:\n{json.dumps(ev, indent=2)}")
+        f"EVIDENCE:\n{json.dumps(trusted_view(ev), indent=2)}")
     r = br.converse(modelId=NOVA, messages=[{"role": "user", "content": [{"text": prompt}]}],
                     inferenceConfig={"temperature": 0.2, "maxTokens": 400})
     return r["output"]["message"]["content"][0]["text"].strip()
 
 
+_NUM = re.compile(r"\d+(?::\d+){0,2}")
+_IDENT = re.compile(r"[A-Za-z0-9]+(?:[-_.][A-Za-z0-9]+){2,}|[A-Za-z0-9]+_[A-Za-z0-9_]+")
+_ARN = re.compile(r"arn:aws[\w:/.-]*", re.I)
+_BAD = re.compile(r"(?i)(?:https?|hxxps?|ftp)://|[\w.+-]+@[\w-]+\.[\w.-]+|\b\d{1,3}(?:\.\d{1,3}){3}\b|\bAKIA[A-Z0-9]{4,}"
+                  r"|\b(?:curl|wget|sudo|chmod|bash)\b|\|\s*(?:sh|bash)\b|\]\(|\b(?:midnight|noon|yesterday|tonight)\b")
+_BY = re.compile(r"(?i)\bby\s+([A-Za-z0-9_.@-]+)")
+
+
 def guard(text, ev):
-    """Strip any line that asserts a number/id/time not present in the evidence (no invented facts)."""
-    hay = json.dumps(ev).lower()
+    """Fail closed. Every number (single digits too), time, identifier, ARN, URL, address, key and command in
+    the answer must come from the TRUSTED evidence. If any line fails, the whole answer is replaced by
+    fallback_rca(ev). Returns (text, rejected_lines)."""
+    hay = json.dumps(trusted_view(ev), default=str).lower()
+    known_nums = set(_NUM.findall(hay))
     kept, stripped = [], []
     for line in text.splitlines():
-        toks = re.findall(r"\b\d+\b", line)
-        bad = [t for t in toks if t not in hay and len(t) > 1]  # a number not seen in evidence
+        bad = bool(_BAD.search(line))
+        bad = bad or any(n not in known_nums for n in _NUM.findall(line))
+        bad = bad or any(i.lower() not in hay for i in _IDENT.findall(line))
+        bad = bad or any(a.lower() not in hay for a in _ARN.findall(line))
+        bad = bad or any(b.lower() not in hay for b in _BY.findall(line))
         (stripped if bad else kept).append(line)
+    if stripped:
+        return fallback_rca(ev), stripped
     return "\n".join(kept), stripped
 
 
@@ -274,7 +340,7 @@ def post_issue(repo, alarm, ev, rca):
     lines = []
     mt = " / ".join(f"{k.replace('_total','').replace('_',' ')} = {v}" for k, v in ev.items() if k.endswith("_total"))
     if mt: lines.append(f"- metric: {mt}")
-    if ev.get("error_log"): lines.append(f"- log: `{ev['error_log']}`")
+    if ev.get("error_log"): lines.append(f"- log (application text, untrusted, defanged): `{neutralize(ev['error_log'])}`")
     if ev.get("approximateageofoldestmessage") is not None:
         lines.append(f"- queue: oldest message ~{ev['approximateageofoldestmessage']}s old, {ev.get('approximatenumberofmessagesvisible','?')} visible")
     if ev.get("write_capacity_units") is not None:
@@ -285,7 +351,7 @@ def post_issue(repo, alarm, ev, rca):
                      + (f", reserved concurrency {ev['reserved_concurrency']}" if 'reserved_concurrency' in ev else "")
                      + f", last modified {ev['last_modified']}")
     if ev.get("execution_error"):
-        lines.append(f"- workflow: failed executions, error `{ev['execution_error']}`")
+        lines.append(f"- workflow: failed executions, error `{neutralize(ev['execution_error'])}`")
     if ev.get("change_event"):
         lines.append(f"- change: {ev['change_event']} by {ev.get('change_by')} at {ev.get('change_time')}")
     body = (f"**Automated RCA by the Incident Investigator (read-only).**\n\n"
@@ -314,7 +380,7 @@ def main():
     print(f"[{ts()}] SERVICE  {ev.get('service','AWS')}: {ev.get('resource')}", flush=True)
     print(f"[{ts()}] METRIC   {mt or ev.get('alarm_metric','(alarm metric)')}", flush=True)
     if ev.get("error_log"):
-        print(f"[{ts()}] LOG      {ev['error_log']}", flush=True)
+        print(f"[{ts()}] LOG      {neutralize(ev['error_log'])}", flush=True)
     if ev.get("approximateageofoldestmessage") is not None:
         print(f"[{ts()}] QUEUE    oldest message ~{ev['approximateageofoldestmessage']}s old, {ev.get('approximatenumberofmessagesvisible','?')} visible", flush=True)
     if ev.get("write_capacity_units") is not None:

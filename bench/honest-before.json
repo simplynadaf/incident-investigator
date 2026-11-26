@@ -1,0 +1,6 @@
+{
+ "kept": 30,
+ "correct": 30,
+ "n": 30,
+ "note": "measured on commit c08b074 (before the fix), same evidence, 10 live Nova Pro runs per incident"
+}

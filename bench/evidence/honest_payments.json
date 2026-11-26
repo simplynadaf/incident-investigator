@@ -1,0 +1,15 @@
+{
+ "alarm": "demo-ii-payments-backlog",
+ "service": "Amazon SQS",
+ "resource": "demo-ii-payments",
+ "function": "demo-ii-payments",
+ "alarm_metric": "ApproximateAgeOfOldestMessage",
+ "state": "ALARM",
+ "threshold": 60.0,
+ "breach_time": "2026-11-26 05:27:00 UTC",
+ "approximateageofoldestmessage": 232,
+ "approximatenumberofmessagesvisible": 10,
+ "numberofmessagessent": 10,
+ "numberofmessagesdeleted": 0,
+ "signal": "messages are piling up: the oldest message is about 232 seconds old and nothing is consuming them (messages sent but not deleted), so the consumer has stalled"
+}

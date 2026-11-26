@@ -47,6 +47,37 @@ def collect():
         print(p, "error_log =", ev.get("error_log"))
 
 
+HONEST = {  # the three original README incidents: alarm and a regex for what a correct RCA must say
+    "checkout": ("demo-ii-checkout-errors", re.compile(r"timeout|time limit", re.I)),
+    "payments": ("demo-ii-payments-backlog", re.compile(r"consum|backlog|pil|stall|messages", re.I)),
+    "fulfillment": ("demo-ii-fulfillment-failures", re.compile(r"definition|deploy|workflow", re.I)),
+}
+
+
+def collect_honest():
+    EVD.mkdir(parents=True, exist_ok=True)
+    for k, (alarm, _) in HONEST.items():
+        ev = inv.gather(alarm)
+        (EVD / f"honest_{k}.json").write_text(json.dumps(redact(ev), indent=1))
+        print(k, "signal =", ev.get("signal"))
+
+
+def run_honest(label, n):
+    tot = {"kept": 0, "correct": 0, "n": 0}
+    for k, (alarm, ok) in HONEST.items():
+        ev = json.loads((EVD / f"honest_{k}.json").read_text())
+        kept = correct = 0
+        for _ in range(n):
+            raw = inv.nova_rca(ev)
+            final, stripped = inv.guard(raw, ev)
+            kept += int(not stripped)
+            correct += int(bool(ok.search(final)))
+        print(f"{label} honest {k}: wording kept by guard {kept}/{n}  RCA names the right cause {correct}/{n}", flush=True)
+        tot["kept"] += kept; tot["correct"] += correct; tot["n"] += n
+    print(f"{label} HONEST TOTAL ({tot['n']} runs): wording kept {tot['kept']}  correct cause {tot['correct']}")
+    (ROOT / "bench" / f"honest-{label}.json").write_text(json.dumps(tot, indent=1))
+
+
 class _Fake:
     def __init__(self, args):
         self.stdout, self.stderr, self.args = "stub", "", args
@@ -91,9 +122,10 @@ def run(label, n, out):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["collect", "run"])
+    ap.add_argument("cmd", choices=["collect", "run", "collect-honest", "run-honest"])
     ap.add_argument("--label", default="run")
     ap.add_argument("--n", type=int, default=10)
     ap.add_argument("--out")
     a = ap.parse_args()
-    collect() if a.cmd == "collect" else run(a.label, a.n, a.out)
+    {"collect": collect, "collect-honest": collect_honest}.get(a.cmd, lambda: None)() if a.cmd.startswith("collect") else (
+        run(a.label, a.n, a.out) if a.cmd == "run" else run_honest(a.label, a.n))
