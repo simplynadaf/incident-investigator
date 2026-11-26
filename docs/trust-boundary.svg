@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="Helvetica, Arial, DejaVu Sans, sans-serif">
+<title>F-02: untrusted log text, before and after</title>
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#F2F4F8"/></marker>
+<marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#FF4D4D"/></marker></defs>
+<rect width="1600" height="900" fill="#161E2D"/>
+<rect x="20" y="22" width="8" height="46" fill="#FF9900"/>
+<text x="42" y="58" fill="#F2F4F8" font-size="32" font-weight="700">F-02: untrusted log text, before and after</text>
+<text x="1580" y="58" text-anchor="end" fill="#A9B4C7" font-size="16">Incident Investigator trust boundary</text>
+<rect x="20" y="90" width="760" height="700" rx="12" fill="#1D2740" stroke="#FF4D4D" stroke-width="2"/><text x="44" y="126" text-anchor="start" fill="#FF4D4D" font-size="22" font-weight="700">BEFORE: log text is trusted</text>
+<rect x="250" y="150" width="300" height="50" rx="8" fill="#232F47" stroke="#FF4D4D" stroke-width="3"/><text x="400.0" y="170.4" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="400">Monitored app / attacker</text><text x="400.0" y="189.4" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="400">writes a log line</text>
+<path d="M400,200 L400,230" fill="none" stroke="#FF4D4D" stroke-width="2.5"  marker-end="url(#arr)"/>
+<rect x="250" y="230" width="300" height="40" rx="8" fill="#232F47" stroke="#F2F4F8" stroke-width="2"/><text x="400.0" y="255.25" text-anchor="middle" fill="#F2F4F8" font-size="15" font-weight="400">CloudWatch Logs</text>
+<path d="M400,270 L400,300" fill="none" stroke="#FF4D4D" stroke-width="2.5"  marker-end="url(#arr)"/>
+<rect x="250" y="300" width="300" height="40" rx="8" fill="#232F47" stroke="#F2F4F8" stroke-width="2"/><text x="400.0" y="325.25" text-anchor="middle" fill="#F2F4F8" font-size="15" font-weight="400">investigator gather()</text>
+<path d="M340,340 L340,360 L210,360 L210,390" fill="none" stroke="#FF4D4D" stroke-width="2.5"  marker-end="url(#arr)"/>
+<path d="M460,340 L460,360 L590,360 L590,390" fill="none" stroke="#FF4D4D" stroke-width="2.5"  marker-end="url(#arr)"/>
+<text x="210" y="354" text-anchor="end" fill="#FF4D4D" font-size="13" font-weight="400">raw error_log</text>
+<rect x="60" y="390" width="300" height="60" rx="8" fill="#232F47" stroke="#FF4D4D" stroke-width="2"/><text x="210.0" y="415.4" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="700">Amazon Nova Pro prompt</text><text x="210.0" y="434.4" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="400">contains error_log</text>
+<rect x="440" y="390" width="300" height="60" rx="8" fill="#232F47" stroke="#FF4D4D" stroke-width="2"/><text x="590.0" y="415.4" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="700">GitHub issue body</text><text x="590.0" y="434.4" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="400">error_log pasted verbatim</text>
+<path d="M210,450 L210,490" fill="none" stroke="#FF4D4D" stroke-width="2.5"  marker-end="url(#arr)"/>
+<rect x="60" y="490" width="300" height="70" rx="8" fill="#232F47" stroke="#FF9900" stroke-width="2"/><text x="210.0" y="510.9" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="700">guard</text><text x="210.0" y="529.9" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="400">checks multi-digit numbers only</text><text x="210.0" y="548.9" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="400">words, links, markup pass</text>
+<path d="M210,560 L210,610 L320,610" fill="none" stroke="#FF4D4D" stroke-width="2.5"  marker-end="url(#arr)"/>
+<path d="M590,450 L590,610 L480,610" fill="none" stroke="#FF4D4D" stroke-width="2.5"  marker-end="url(#arr)"/>
+<text x="590" y="510" text-anchor="middle" fill="#FF4D4D" font-size="14" font-weight="700">attacker links and</text>
+<text x="590" y="530" text-anchor="middle" fill="#FF4D4D" font-size="14" font-weight="700">instructions arrive intact</text>
+<rect x="250" y="585" width="300" height="50" rx="8" fill="#232F47" stroke="#FF4D4D" stroke-width="3"/><text x="400.0" y="615.6" text-anchor="middle" fill="#F2F4F8" font-size="16" font-weight="700">GitHub issue</text>
+<path d="M400,635 L400,665" fill="none" stroke="#FF4D4D" stroke-width="2.5"  marker-end="url(#arr)"/>
+<rect x="250" y="665" width="300" height="46" rx="8" fill="#232F47" stroke="#FF4D4D" stroke-width="3"/><text x="400.0" y="683.4" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="700">on-call human</text><text x="400.0" y="702.4" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="400">clicks the link, trusts the RCA</text>
+<rect x="820" y="90" width="760" height="700" rx="12" fill="#1D2740" stroke="#5FD38D" stroke-width="2"/><text x="844" y="126" text-anchor="start" fill="#5FD38D" font-size="22" font-weight="700">AFTER: trusted vs untrusted split</text>
+<rect x="1050" y="150" width="300" height="50" rx="8" fill="#232F47" stroke="#FF4D4D" stroke-width="3"/><text x="1200.0" y="170.4" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="400">Monitored app / attacker</text><text x="1200.0" y="189.4" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="400">writes a log line</text>
+<path d="M1200,200 L1200,230" fill="none" stroke="#FF4D4D" stroke-width="2.5"  marker-end="url(#arr)"/>
+<rect x="1050" y="230" width="300" height="40" rx="8" fill="#232F47" stroke="#F2F4F8" stroke-width="2"/><text x="1200.0" y="255.25" text-anchor="middle" fill="#F2F4F8" font-size="15" font-weight="400">CloudWatch Logs</text>
+<path d="M1200,270 L1200,300" fill="none" stroke="#FF4D4D" stroke-width="2.5"  marker-end="url(#arr)"/>
+<rect x="1050" y="300" width="300" height="40" rx="8" fill="#232F47" stroke="#F2F4F8" stroke-width="2"/><text x="1200.0" y="325.25" text-anchor="middle" fill="#F2F4F8" font-size="15" font-weight="400">investigator gather()</text>
+<line x1="1200" y1="352" x2="1200" y2="690" stroke="#FF9900" stroke-width="3" stroke-dasharray="10 6"/>
+<text x="1188" y="372" text-anchor="end" fill="#5FD38D" font-size="15" font-weight="700">TRUSTED</text>
+<text x="1212" y="372" text-anchor="start" fill="#FF4D4D" font-size="15" font-weight="700">UNTRUSTED</text>
+<path d="M1140,340 L1140,385 L1010,385 L1010,395" fill="none" stroke="#5FD38D" stroke-width="2.5"  marker-end="url(#ar)"/>
+<path d="M1260,340 L1260,385 L1390,385 L1390,395" fill="none" stroke="#FF4D4D" stroke-width="2.5"  marker-end="url(#arr)"/>
+<rect x="850" y="395" width="320" height="70" rx="8" fill="#232F47" stroke="#5FD38D" stroke-width="2"/><text x="1010.0" y="415.9" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="700">Trusted evidence</text><text x="1010.0" y="434.9" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="400">metrics, config, CloudTrail,</text><text x="1010.0" y="453.9" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="400">one error type from an allowlist</text>
+<rect x="1230" y="395" width="320" height="70" rx="8" fill="#232F47" stroke="#FF4D4D" stroke-width="2"/><text x="1390.0" y="415.9" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="700">Untrusted log text</text><text x="1390.0" y="434.9" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="400">never sent to the model</text><text x="1390.0" y="453.9" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="400">treated as data only</text>
+<path d="M1010,465 L1010,490" fill="none" stroke="#5FD38D" stroke-width="2.5"  marker-end="url(#ar)"/>
+<rect x="850" y="490" width="320" height="50" rx="8" fill="#232F47" stroke="#F2F4F8" stroke-width="2"/><text x="1010.0" y="510.4" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="700">Amazon Nova Pro</text><text x="1010.0" y="529.4" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="400">trusted evidence only</text>
+<path d="M1010,540 L1010,565" fill="none" stroke="#5FD38D" stroke-width="2.5"  marker-end="url(#ar)"/>
+<rect x="850" y="565" width="320" height="85" rx="8" fill="#232F47" stroke="#FF9900" stroke-width="2"/><text x="1010.0" y="585.05" text-anchor="middle" fill="#F2F4F8" font-size="13" font-weight="700">guard: fail closed</text><text x="1010.0" y="603.05" text-anchor="middle" fill="#F2F4F8" font-size="13" font-weight="400">every number, time, identifier, ARN,</text><text x="1010.0" y="621.05" text-anchor="middle" fill="#F2F4F8" font-size="13" font-weight="400">URL, address, key, command must come</text><text x="1010.0" y="639.05" text-anchor="middle" fill="#F2F4F8" font-size="13" font-weight="400">from trusted evidence, else deterministic RCA</text>
+<path d="M1390,465 L1390,490" fill="none" stroke="#FF4D4D" stroke-width="2.5"  marker-end="url(#arr)"/>
+<rect x="1230" y="490" width="320" height="50" rx="8" fill="#232F47" stroke="#FF9900" stroke-width="2"/><text x="1390.0" y="501.55" text-anchor="middle" fill="#F2F4F8" font-size="13" font-weight="700">neutralize()</text><text x="1390.0" y="519.55" text-anchor="middle" fill="#F2F4F8" font-size="13" font-weight="400">one line, defanged links,</text><text x="1390.0" y="537.55" text-anchor="middle" fill="#F2F4F8" font-size="13" font-weight="400">no markup, no control chars</text>
+<path d="M1390,540 L1390,702 L1350,702" fill="none" stroke="#FF9900" stroke-width="2.5"  marker-end="url(#ar)"/>
+<text x="1390" y="590" text-anchor="middle" fill="#FF9900" font-size="13" font-weight="400">labelled log line</text>
+<path d="M1010,650 L1010,702 L1050,702" fill="none" stroke="#5FD38D" stroke-width="2.5"  marker-end="url(#ar)"/>
+<line x1="1170" y1="430" x2="1230" y2="430" stroke="#FF4D4D" stroke-width="2.5" stroke-dasharray="6 5"/>
+<circle cx="1200" cy="430" r="14" fill="#161E2D" stroke="#FF4D4D" stroke-width="3"/><path d="M1194,424 L1206,436 M1206,424 L1194,436" stroke="#FF4D4D" stroke-width="3"/>
+<text x="1240" y="484" text-anchor="middle" fill="#FF4D4D" font-size="13" font-weight="700">attacker path cut</text>
+<rect x="1050" y="680" width="300" height="44" rx="8" fill="#232F47" stroke="#5FD38D" stroke-width="3"/><text x="1200.0" y="697.4" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="700">GitHub issue</text><text x="1200.0" y="716.4" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="400">RCA + labelled log line</text>
+<path d="M1200,724 L1200,742" fill="none" stroke="#5FD38D" stroke-width="2.5"  marker-end="url(#ar)"/>
+<rect x="1050" y="742" width="300" height="42" rx="8" fill="#232F47" stroke="#5FD38D" stroke-width="3"/><text x="1200.0" y="758.4" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="700">on-call human</text><text x="1200.0" y="777.4" text-anchor="middle" fill="#F2F4F8" font-size="14" font-weight="400">reads data, not instructions</text>
+<rect x="20" y="804" width="760" height="52" rx="10" fill="#161E2D" stroke="#FF4D4D" stroke-width="2"/>
+<text x="400" y="837" text-anchor="middle" fill="#FF4D4D" font-size="20" font-weight="700">BEFORE: 12/40 steered RCAs   |   30/40 clickable attacker links</text>
+<rect x="820" y="804" width="760" height="52" rx="10" fill="#161E2D" stroke="#5FD38D" stroke-width="2"/>
+<text x="1200" y="837" text-anchor="middle" fill="#5FD38D" font-size="20" font-weight="700">AFTER: 0/40 steered RCAs   |   0/40 clickable attacker links</text>
+<text x="800" y="882" text-anchor="middle" fill="#A9B4C7" font-size="15" font-weight="400">Amazon Nova Pro, 40 live runs per condition. Honest incidents: 30/30 correct before and after.</text>
+</svg>

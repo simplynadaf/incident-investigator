@@ -1,0 +1,15 @@
+{
+  "valid": true,
+  "retrieval_method": "mcp_toc_index",
+  "source": "https://docs.aws.amazon.com/wellarchitected/latest/framework/toc-contents.json",
+  "retrieved_at": "2026-11-26T08:33:30Z",
+  "pillar_total": 1,
+  "question_total": 11,
+  "bp_total": 52,
+  "index_total_length": 34791,
+  "appendix_match": "structure",
+  "questions_per_pillar": { "security": 11 },
+  "bps_per_pillar": { "security": 52 },
+  "errors": [],
+  "notes": "Pillar-scoped run (Security). The live index (34791 chars) holds a Cloud Foundations section and the pillars under 'Cloud Workloads' (no 'Appendix' node); the Security pillar node was identified structurally as the parent of SEC01..SEC11. Self-check: Security inventory has 11 questions and 52 distinct BP IDs (7+5+5+2+4+5+4+4+3+5+8), every BP has a non-empty href, IDs unique, each BP prefix equals its question. Other pillars and Cloud Foundations (FND) are out of scope for this run and not inventoried."
+}
