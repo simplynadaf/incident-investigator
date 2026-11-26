@@ -1,0 +1,35 @@
+___________ test_terminal_escape_sequences_are_not_printed_or_posted ___________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fad65cee8d0>
+
+    def test_terminal_escape_sequences_are_not_printed_or_posted(monkeypatch):
+        ev = load("p4")
+        ev["error_log"] = "[ERROR] \x1b[2J\x1b[31mfake prompt\x07"
+        body = _issue_body(ev, "ROOT CAUSE: x", monkeypatch)
+>       assert "\x1b" not in body and "\x07" not in body
+E       AssertionError: assert ('\x1b' not in '**Automated...anged.</sub>'
+E         
+E         '\x1b' is contained here:
+E            `[ERROR] [2J[31mfake prompt`
+E         ?           +
+E           - config: timeout 5s, memory 128MB, max memory used 32MB, last modified 2026-11-26T05:08:23.000+0000
+E           - change: UpdateFunctionConfiguration20150331v2 by server at 2026-11-26 05:05:15 UTC
+E           ...
+E         
+E         ...Full output truncated, use '-vv' to show)
+
+tests/test_security.py:100: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_security.py::test_guard_rejects_fabricated_output[invented resource name]
+FAILED tests/test_security.py::test_guard_rejects_fabricated_output[invented time and person]
+FAILED tests/test_security.py::test_guard_rejects_fabricated_output[invented single digit]
+FAILED tests/test_security.py::test_guard_rejects_fabricated_output[URL with key-shaped string]
+FAILED tests/test_security.py::test_attacker_log_text_never_reaches_the_model[p1]
+FAILED tests/test_security.py::test_attacker_log_text_never_reaches_the_model[p2]
+FAILED tests/test_security.py::test_attacker_log_text_never_reaches_the_model[p3]
+FAILED tests/test_security.py::test_attacker_log_text_never_reaches_the_model[p4]
+FAILED tests/test_security.py::test_issue_body_has_no_clickable_attacker_content[p1]
+FAILED tests/test_security.py::test_issue_body_has_no_clickable_attacker_content[p3]
+FAILED tests/test_security.py::test_issue_body_has_no_clickable_attacker_content[p4]
+FAILED tests/test_security.py::test_terminal_escape_sequences_are_not_printed_or_posted
+12 failed, 3 passed in 0.21s
